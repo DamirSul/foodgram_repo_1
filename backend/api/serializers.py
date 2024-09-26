@@ -3,7 +3,7 @@ import base64
 from rest_framework import serializers
 from django.core.files.base import ContentFile
 
-from food.models import Ingredient, Tag, Recipe, Subscription, Favorite, ShoppingCart, RecipeIngredient
+from food.models import Ingredient, Tag, Recipe, Subscription, Favorite, ShoppingCart, RecipeIngredient, RecipeTag
 from users.models import User
 
 
@@ -48,180 +48,61 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug']
 
 
-# class RecipeIngredientSerializer(serializers.ModelSerializer):
-#     id = serializers.IntegerField(source='ingredient.id')  # Используйте source для извлечения ID из ингредиента
-#     amount = serializers.IntegerField()  # Убедитесь, что поле amount также присутствует
-
-#     class Meta:
-#         model = RecipeIngredient
-#         fields = ['id', 'amount']  # Используйте 'id' вместо 'ingredient'
-
 class RecipeIngredientSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()  # source='ingredient.id'
-    amount = serializers.IntegerField()
+    id = serializers.IntegerField(source='ingredient.id')  # Извлекаем ID ингредиента
 
     class Meta:
         model = RecipeIngredient
-        fields = ['id', 'amount']
+        fields = ['id', 'amount']  # Оставляем только id и amount
 
 
 class RecipeSerializer(serializers.ModelSerializer):
     ingredients = RecipeIngredientSerializer(many=True, source='recipe_ingredients')
-    tags = serializers.PrimaryKeyRelatedField(many=True, queryset=Tag.objects.all())
+    tags = serializers.PrimaryKeyRelatedField(many=True, queryset=Tag.objects.all(), write_only=True)  # Поле для записи тегов
     image = Base64ImageField(required=False, allow_null=True)
+    author = serializers.ReadOnlyField(source='author.username')
 
     class Meta:
         model = Recipe
-        fields = ['name', 'text', 'cooking_time', 'ingredients', 'tags', 'image']
+        fields = ['id', 'name', 'text', 'cooking_time', 'ingredients', 'tags', 'image', 'is_favorited', 'is_in_shopping_cart', 'author']
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        # Получаем информацию о тегах
+        representation['tags'] = TagSerializer(instance.tags.all(), many=True).data  # Используем TagSerializer
+        #representation['author'] = UserSerializer(instance.author, read_only=True).data
+        representation['author'] = {
+            'id': instance.author.id,
+            'username': instance.author.username,
+            'first_name': instance.author.first_name,
+            'last_name': instance.author.last_name,
+            'email': instance.author.email,
+            'is_subscribed': instance.author.is_subscribed,
+            'avatar': instance.author.avatar.url if instance.author.avatar else None,  # Проверяем наличие аватара
+        }
+
+        return representation
 
     def create(self, validated_data):
-        print("Полученные данные для создания рецепта:", validated_data)  # Отладочный вывод
-
         ingredients_data = validated_data.pop('recipe_ingredients')
-        tags_data = validated_data.pop('tags')
-
-        print("Ингредиенты:", ingredients_data)  # Отладочный вывод
-        print("Теги:", tags_data)  # Отладочный вывод
+        tags_data = validated_data.pop('tags', [])  # Извлекаем теги
 
         recipe = Recipe.objects.create(**validated_data)
-        print("Созданный рецепт:", recipe.pk)  # Отладочный вывод
 
         for ingredient_data in ingredients_data:
-            print("Текущий ингредиент:", ingredient_data)  # Отладочный вывод
-            try:
-                ingredient_id = ingredient_data['id']
-                print(f'ИДшник ингредиента {ingredient_id}')
-                ingredient_amount = ingredient_data['amount']
-                RecipeIngredient.objects.create(recipe=recipe, ingredient_id=ingredient_id, amount=ingredient_amount)
-                print(f"Ингредиент {ingredient_id} добавлен в рецепт с количеством {ingredient_amount}.")  # Отладочный вывод
-            except KeyError as e:
-                print(f"Ошибка KeyError: {e}. Проверьте, правильно ли передаются данные.")  # Отладочный вывод
+            ingredient_id = ingredient_data['ingredient']['id']
+            ingredient_amount = ingredient_data['amount']
+            RecipeIngredient.objects.create(recipe=recipe, ingredient_id=ingredient_id, amount=ingredient_amount)
 
+        # Устанавливаем теги
         recipe.tags.set(tags_data)
-        print("Теги успешно установлены для рецепта.")  # Отладочный вывод
-
         return recipe
 
 
 
-# class RecipeIngredientSerializer(serializers.ModelSerializer):
-#     id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all(), source='ingredient.id')
-#     amount = serializers.IntegerField()
-
-#     class Meta:
-#         model = RecipeIngredient
-#         fields = ['id', 'amount']
 
 
-# class RecipeSerializer(serializers.ModelSerializer):
-#     ingredients = RecipeIngredientSerializer(many=True)
-#     image = Base64ImageField(required=False, allow_null=True)
-#     tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(), many=True)
-
-#     class Meta:
-#         model = Recipe
-#         fields = ['id', 'ingredients', 'tags', 'image', 'name', 'text', 'cooking_time']
-
-#     def create(self, validated_data):
-#         ingredients_data = validated_data.pop('ingredients')
-#         tags_data = validated_data.pop('tags')
-#         image_data = validated_data.pop('image', None)
-
-#         print("validated_data:", validated_data)
-#         print("ingredients_data:", ingredients_data)
-
-#         # Создание рецепта
-#         recipe = Recipe.objects.create(image=image_data, **validated_data)
-
-#         # Добавление ингредиентов
-#         for ingredient_data in ingredients_data:
-#             # Извлекаем id из вложенного словаря
-#             ingredient_instance = ingredient_data['ingredient']['id']  
-#             RecipeIngredient.objects.create(
-#                 recipe=recipe,
-#                 ingredient=ingredient_instance,
-#                 amount=ingredient_data['amount']
-#             )
-
-#         # Добавление тегов
-#         recipe.tags.set(tags_data)
-
-#         return recipe
-
-
-    # def to_representation(self, instance):
-    #     """ Переопределяем вывод данных для рецепта """
-    #     representation = super().to_representation(instance)
-    #     ingredients = RecipeIngredient.objects.filter(recipe=instance)
-        
-    #     # Формируем данные для ингредиентов вручную
-    #     representation['ingredients'] = [
-    #         {
-    #             'id': ingredient.ingredient.id,
-    #             'name': ingredient.ingredient.name,  # Можно добавить название для удобства
-    #             'amount': ingredient.amount
-    #         }
-    #         for ingredient in ingredients
-    #     ]
-    #     return representation
-
-    # def create(self, validated_data):
-    #     # Обработка ингредиентов
-    #     ingredients_data = validated_data.pop('ingredients')
-    #     tags_data = validated_data.pop('tags')
-    #     image_data = validated_data.pop('image', None)
-
-    #     print("Полученные данные для создания рецепта:")
-    #     print("validated_data:", validated_data)
-    #     print("ingredients_data:", ingredients_data)
-    #     print("tags_data:", tags_data)
-
-    #     # Декодирование изображения
-    #     image = None
-    #     if image_data:
-    #         if isinstance(image_data, ContentFile):
-    #             image = image_data
-    #         else:
-    #             format, imgstr = image_data.split(';base64,')
-    #             ext = format.split('/')[-1]
-    #             image = ContentFile(base64.b64decode(imgstr), name=f'temp.{ext}')
-    #             print("Изображение успешно декодировано.")
-
-    #     # Создание рецепта
-    #     recipe = Recipe.objects.create(image=image, **validated_data)
-    #     print(f"Рецепт {recipe.name} создан с ID {recipe.id}.")
-
-    #     # Добавление ингредиентов
-    #     for ingredient_data in ingredients_data:
-    #         print("ingredient_data:", ingredient_data)
-
-    #         # Получаем объект ингредиента
-    #         ingredient_instance = ingredient_data['id']
-    #         amount = ingredient_data['amount']
-
-    #         print(f"Используем ингредиент: {ingredient_instance.name}")
-    #         print(f"Количество ингредиента: {amount}")
-
-    #         # Добавление ингредиента в рецепт
-    #         RecipeIngredient.objects.create(
-    #             recipe=recipe,
-    #             ingredient=ingredient_instance,
-    #             amount=amount
-    #         )
-    #         print(f"Ингредиент {ingredient_instance.name} добавлен в рецепт.")
-
-    #     # Добавление тегов
-    #     recipe.tags.set(tags_data)
-
-    #     print(f"Рецепт {recipe.name} успешно создан с ID {recipe.id}.")
-    #     return recipe
-
-
-
-
-
-    
 class SubscriptionSerializer(serializers.ModelSerializer):
     recipes = RecipeSerializer(many=True)
     user = serializers.StringRelatedField()
