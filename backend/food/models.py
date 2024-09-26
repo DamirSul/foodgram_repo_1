@@ -63,7 +63,7 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         verbose_name='Время приготовления'
     )
-    image = models.ImageField(verbose_name='Фотография')
+    image = models.ImageField(verbose_name='Фотография', upload_to='recipes/')
     ingredients = models.ManyToManyField(
         Ingredient,
         through='RecipeIngredient',

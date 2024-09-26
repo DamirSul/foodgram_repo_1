@@ -34,7 +34,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'avatar']
 
     def get_is_subscribed(self, obj):
-        return False  # Здесь можно реализовать логику проверки подписки
+        return False
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -68,7 +68,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-
+        #print(instance.ingredients)
         # Получаем информацию о тегах
         representation['tags'] = TagSerializer(instance.tags.all(), many=True).data  # Используем TagSerializer
         #representation['author'] = UserSerializer(instance.author, read_only=True).data
@@ -81,13 +81,20 @@ class RecipeSerializer(serializers.ModelSerializer):
             'is_subscribed': instance.author.is_subscribed,
             'avatar': instance.author.avatar.url if instance.author.avatar else None,  # Проверяем наличие аватара
         }
-
+        representation['ingredients'] = [
+            {
+                'id': ingredient.ingredient.id,
+                'name': ingredient.ingredient.name,
+                'measurement_unit': ingredient.ingredient.measurement_unit,
+                'amount': ingredient.amount,
+            }
+            for ingredient in instance.recipe_ingredients.all()
+        ]
         return representation
 
     def create(self, validated_data):
         ingredients_data = validated_data.pop('recipe_ingredients')
-        tags_data = validated_data.pop('tags', [])  # Извлекаем теги
-
+        tags_data = validated_data.pop('tags', [])
         recipe = Recipe.objects.create(**validated_data)
 
         for ingredient_data in ingredients_data:
