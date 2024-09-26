@@ -179,6 +179,7 @@ class RecipeIngredient(models.Model):
     amount = models.PositiveIntegerField(verbose_name='Количество')
 
     class Meta:
+        default_related_name = 'recipe_ingredients'
         constraints = [
             models.UniqueConstraint(
                 fields=['recipe', 'ingredient'],

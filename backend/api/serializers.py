@@ -66,7 +66,7 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = RecipeIngredientSerializer(many=True)
+    ingredients = RecipeIngredientSerializer(many=True, source='recipe_ingredients')
     tags = serializers.PrimaryKeyRelatedField(many=True, queryset=Tag.objects.all())
     image = Base64ImageField(required=False, allow_null=True)
 
@@ -78,7 +78,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         print("Полученные данные для создания рецепта:", validated_data)  # Отладочный вывод
 
-        ingredients_data = validated_data.pop('ingredients')
+        ingredients_data = validated_data.pop('recipe_ingredients')
         tags_data = validated_data.pop('tags')
 
         print("Ингредиенты:", ingredients_data)  # Отладочный вывод
