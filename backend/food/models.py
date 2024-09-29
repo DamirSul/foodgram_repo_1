@@ -63,7 +63,7 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         verbose_name='Время приготовления'
     )
-    image = models.ImageField(verbose_name='Фотография', upload_to='recipes/')
+    image = models.ImageField(verbose_name='Фотография', upload_to='recipes/images/')
     ingredients = models.ManyToManyField(
         Ingredient,
         through='RecipeIngredient',
@@ -82,6 +82,7 @@ class Recipe(models.Model):
         default=False,
         verbose_name='В списке покупок'
     )
+    favorited_by = models.ManyToManyField(User, related_name='favorited_recipes_list', blank=True)
 
     class Meta:
         verbose_name = 'Рецепт'
@@ -126,12 +127,12 @@ class Favorite(models.Model):
         AUTH_USER_MODEL,
         verbose_name='Пользователь',
         on_delete=models.CASCADE,
-        related_name='favorites'
+        related_name='favorites_list'
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='favorited_by'
+        related_name='favorited_recipes'
     )
 
     class Meta:
@@ -186,6 +187,8 @@ class RecipeIngredient(models.Model):
                 name='unique_recipe_ingredient'
             )
         ]
+        verbose_name = 'Рецепты и ингредиенты'
+        verbose_name_plural = 'Рецепты и ингредиенты'
 
     def __str__(self):
         return f"{self.ingredient.name} - {self.amount}"
@@ -202,6 +205,16 @@ class RecipeTag(models.Model):
                 name='unique_recipe_tag'
             )
         ]
+        verbose_name = 'Рецепты и теги'
+        verbose_name_plural = 'Рецепты и теги'
 
     def __str__(self):
         return f"{self.recipe.name} - {self.tag.name}"
+    
+
+class ShortLink(models.Model):
+    recipe = models.ForeignKey('Recipe', on_delete=models.CASCADE)
+    short_code = models.CharField(max_length=10, unique=True)
+
+    def __str__(self):
+        return f"{self.short_code} -> {self.recipe.name}"

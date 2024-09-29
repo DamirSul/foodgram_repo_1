@@ -41,12 +41,7 @@ class User(AbstractUser):
         default=False,
         verbose_name='Подписка'
     )
-    avatar = models.URLField(
-        verbose_name='Аватар',
-        max_length=200,
-        blank=True,
-        null=True
-    )
+    avatar = models.ImageField(verbose_name='Аватар', upload_to='users/', blank=True, null=True)
 
     class Meta:
         verbose_name = 'Пользователь'

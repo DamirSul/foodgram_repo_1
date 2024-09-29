@@ -10,3 +10,4 @@ pytest-pythonpath==0.7.3
 PyYAML==6.0
 python-dotenv
 django-cors-headers
+django-filter
