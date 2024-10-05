@@ -159,9 +159,9 @@ class ShoppingCart(models.Model):
         on_delete=models.CASCADE,
         related_name='in_shopping_cart'
     )
-    cooking_time = models.PositiveSmallIntegerField(
-        verbose_name='Время приготовления'
-    )
+    # cooking_time = models.PositiveSmallIntegerField(
+    #     verbose_name='Время приготовления'
+    # )
 
     class Meta:
         constraints = [
