@@ -189,7 +189,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context.get('request')
         if request.method in ['PUT', 'PATCH'] and request.user != self.instance.author:
-            raise PermissionDenied("Вы не можете редактировать чужой рецепт.")  # Используем PermissionDenied
+            raise PermissionDenied("Вы не можете редактировать чужой рецепт.")
         return data
 
 

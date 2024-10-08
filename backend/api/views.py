@@ -2,7 +2,7 @@ from django.shortcuts import render
 from djoser import views as djoser_views
 from rest_framework import status, viewsets, permissions
 from rest_framework.response import Response
-
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
@@ -199,6 +199,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
 
         # Фильтрация по параметрам
+        is_favorited = self.request.query_params.get('is_favorited', None)
+        if is_favorited is not None:
+            if user.is_authenticated:
+                if is_favorited.lower() == 'true':
+                    # Получаем рецепты, добавленные в избранное пользователем
+                    queryset = queryset.filter(favorites__author=user)
+                elif is_favorited.lower() == 'false':
+                    # Получаем рецепты, которые не добавлены в избранное пользователем
+                    queryset = queryset.exclude(favorites__author=user)
         if self.request.query_params.get('is_favorited') in ['1', 'true']:
             queryset = queryset.filter(is_recipe_favorited=True)
 
@@ -211,7 +220,25 @@ class RecipeViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(tags__slug__in=tag_slugs).distinct()
 
         return queryset
+    
 
+    def destroy(self, request, pk=None):
+        try:
+            recipe = self.get_object()  # Получаем рецепт по первичному ключу
+        except Recipe.DoesNotExist:
+            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Проверяем, что пользователь аутентифицирован
+        if not request.user.is_authenticated:
+            return Response({"detail": "Необходима аутентификация."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Проверяем, является ли пользователь автором рецепта
+        if recipe.author != request.user:
+            raise PermissionDenied("Вы не можете удалить чужой рецепт.")
+
+        # Удаляем рецепт
+        recipe.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
     
     # def get_serializer_context(self):
     #     context = super().get_serializer_context()
@@ -251,17 +278,35 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         # Проверяем, что рецепт уже в избранном
         favorite = Favorite.objects.filter(author=user, recipe=recipe).first()
+
         if request.method == 'DELETE':
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-        if favorite:
-            # Если рецепт уже в избранном, удаляем его
+                        # Убедитесь, что пользователь является автором рецепта
+            if not favorite:
+                # Если рецепт не был добавлен в избранное, возвращаем статус 400
+                return Response({"detail": "Рецепт не добавлен в избранное."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Если рецепт в избранном, удаляем его
             favorite.delete()
-            return Response({"detail": "Рецепт успешно удален из избранного."}, status=status.HTTP_204_NO_CONTENT)
-        else:
-            # Если рецепт не в избранном, добавляем его
-            Favorite.objects.create(author=user, recipe=recipe)
-            serializer = RecipeSerializer(recipe, context={'request': request})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        # Обработка POST для добавления в избранное
+        if favorite:
+            # Если рецепт уже в избранном, возвращаем статус 400
+            return Response({"detail": "Рецепт уже в избранном."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Если рецепт не в избранном, добавляем его
+        Favorite.objects.create(author=user, recipe=recipe)
+        serializer = RecipeSerializer(recipe, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+
+
+
+
+
+
+
 
 
     @action(detail=False, methods=['get'], url_path='download_shopping_cart')
@@ -332,6 +377,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
             
             shopping_cart_item.delete()
             return Response({'detail': 'Рецепт удален из списка покупок.'}, status=status.HTTP_204_NO_CONTENT)
+        
+
 
 
 class FavoriteViewSet(viewsets.ModelViewSet):
