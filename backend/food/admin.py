@@ -16,10 +16,15 @@ admin.site.register(
 class UserAdmin(admin.ModelAdmin):
     search_fields = ['email', 'username']
 
+class RecipeIngredientInline(admin.TabularInline):
+    model = RecipeIngredient
+    extra = 1  # Указываем количество пустых строк для добавления новых ингредиентов
+
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'author', 'favorite_count')
     search_fields = ['name', 'author__username']
     list_filter = ('tags',)
+    inlines = [RecipeIngredientInline]  # Добавляем Inline для ингредиентов
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
